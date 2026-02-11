@@ -43,6 +43,8 @@ class Socketlabs_Mailer{
             "Attachments"=> array()
         );
 
+        public $message;
+        
          /**
          * @since    1.0.0
          * @access   private
@@ -292,12 +294,23 @@ class Socketlabs_Mailer{
             * https://core.trac.wordpress.org/ticket/5007.
             */
 
-            if ( $this->api_message["From"] == null ) {
+            if ($this->api_message["From"] == null) {
                 $from_name = 'WordPress';
-                // Get the site domain and get rid of www.
-                $sitename = strtolower( $_SERVER['SERVER_NAME'] );
-                if ( substr( $sitename, 0, 4 ) == 'www.' ) {
-                    $sitename = substr( $sitename, 4 );
+                $sitename = 'localhost';
+
+                // Check if SERVER_NAME is set
+                if (isset($_SERVER['SERVER_NAME'])) {
+
+                    // Set sitename to SERVER_NAME
+                    $sitename = $_SERVER['SERVER_NAME'];
+
+                    // Make it lowercase
+                    $sitename = strtolower($sitename);
+
+                    // Get rid of www. if it exists
+                    if (substr($sitename, 0, 4) == 'www.') {
+                        $sitename = substr($sitename, 4);
+                    }
                 }
 
                 $from_email = 'wordpress@' . $sitename;
@@ -350,17 +363,33 @@ class Socketlabs_Mailer{
      * @return   object
      */
     public function send(){
-        
-        $payload = (object) array(
-            "ServerId" => Socketlabs::get_server_id(),
-            "ApiKey"=> Socketlabs::get_api_key(),
-            "Messages"=> array($this->api_message)
+        $apiKey = Socketlabs::get_api_key();
+        $serverId = Socketlabs::get_server_id();
+
+        $headers = array(
+            'Content-Type' => 'application/json',
+            'Accept' => 'application/json'
         );
+
+        // If apiKey is 61 characters, use Bearer token in Authorization header
+        if (strlen($apiKey) === 61) {
+            $headers['Authorization'] = 'Bearer ' . $apiKey;		
+            $payload = (object) array(
+                "ServerId" => $serverId,
+                "Messages"=> array($this->api_message)
+            );
+        } else {
+            $payload = (object) array(
+                "ServerId" => $serverId,
+                "ApiKey"=> $apiKey,
+                "Messages"=> array($this->api_message)
+            );
+        }
 
         return wp_remote_post( $this->api_url, array(
             'method' => 'POST',
             'body' => json_encode($payload),
-            'headers' => 'Content-Type: application/json'
+            'headers' => $headers
         ));
     }
 }
